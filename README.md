@@ -1,3 +1,4 @@
+# DRAFT
 # Azure Document Intelligence SDK with Blob Storage Event Trigger
 
 This project uses the Azure Document Intelligence SDK to read an image with the `prebuilt-document` model from a Blob Storage event trigger and write the results into {filename}-page-{x}.txt into the configured blob container.
@@ -65,10 +66,23 @@ az functionapp config appsettings set --name "${appName}func" --resource-group $
 
 ```
 
-## Setup
+## Azure Function Deployment 
+We are going to use VSCode and Azure Functions extension to deploy the Azure Function we just created.  You can easily use Azure DevOps Pipeline or Github Actions to setup CI/CD.
 
 1. Clone this repository to your local machine.
-2. Open the project in your preferred IDE.
+2. Open the project in Visual Studio Code
+3. Right click on src\ImageToPdf folder and select the subscription and the Azure Function to deploy.
+
+## Configure Azure Blob Event Subscription
+Now the Azure Function is deployed, we need to tell storage account what webhook to call when a blob create event occurs.
+
+```ps
+# Get storage account resource id
+$resourceId=$(az storage account show --name "sa$appName" --resource-group $resourceGroup --query id -o tsv)
+
+az eventgrid event-subscription create --name scanned-images-blob-created --source-resource-id $resourceId --endpoint 
+```
+
 
 ## How to use
 
