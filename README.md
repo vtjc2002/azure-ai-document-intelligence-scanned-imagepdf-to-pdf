@@ -1,12 +1,14 @@
-# DRAFT
 # Azure Document Intelligence SDK with Blob Storage Event Trigger
 
 This project uses the Azure Document Intelligence SDK to read an image with the `prebuilt-document` model from a Blob Storage event trigger and write the results into {filename}-page-{x}.txt into the configured blob container.
 
 ## Infrastructure
 Follow the below steps to provision necessary Azure infrastructure for this code sample to work using az cli and powershell.
+Make sure to get the latest version of az cli and powershell before proceeding.
 
 ___Please note that you should secure your network using Vnet and secrets using Azure KeyVault for production purpose.___
+
+___Run one command at a time to spot issues eaiser.___
 
 ```powershell
 # set ps variables
