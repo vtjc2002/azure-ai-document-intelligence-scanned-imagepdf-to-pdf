@@ -25,11 +25,13 @@ namespace ImageToPdf
         }
 
         /// <summary>
-        /// Azure Function triggered by a blob event.  The blob is analyzed using Azure Document Intelligence and the result is written to a txt file in the configured ProcessedContainer container
+        /// Azure Function triggered by a blob event.  The blob is analyzed using Azure Document Intelligence and the results are output to a PDF and txt files to storage account.
         /// </summary>
         [Function("ImageToPdfFuncBlobEventTrigger")]
         public async Task ImageToPdfBlobEventTrigger([BlobTrigger("scanned-images/{name}", Source = BlobTriggerSource.EventGrid, Connection = "ImageSourceStorage")] Stream inputStream, string name)
         {
+            // start performance timer
+            var watch = System.Diagnostics.Stopwatch.StartNew();
 
             // get Azure Document Intelligence endpoint and key from environment variables
             var docIntelEndpoint = System.Environment.GetEnvironmentVariable("AzureDocumentIntelligenceEndpoint");
@@ -41,7 +43,6 @@ namespace ImageToPdf
 
             try
             {
-
                 // convert the stream to a memory stream.  This is needed as the AnalyzeDocumentAsync cannot read diretly from the blob uri that's not publicly accessible
                 using var ms = new MemoryStream();
                 inputStream.CopyTo(ms);
@@ -59,30 +60,30 @@ namespace ImageToPdf
                 _logger.LogError($"Error analyzing document: {ex.Message}");
             }
 
-            _logger.LogInformation($"C# Blob trigger function Processed blob\n Name: {name} ");
+            _logger.LogInformation($"C# Blob trigger function Processed blob\n Name: {name}. \n Duration: {watch.ElapsedMilliseconds} ms");
 
             //TODO: Notifiy the user that the document has been processed.  
             //The recommendation is to use Azure Event Grid.  See https://docs.microsoft.com/en-us/azure/event-grid/overview
         }
 
         /// <summary>
-        /// Process the AnalyzeResult and group paragraphs by page and use stringbuilder to create a string for each page.  The result is then written to a txt file in the configured ProcessedContainer container
+        /// Process the AnalyzeResult and save the paragraphs to txt files separated by page and the pages to single PDF file.
         /// </summary>
         /// <param name="result">result from DocumentAnalysis</param>
-        /// <param name="filename">file name</param>
+        /// <param name="fileName">file name</param>
         /// <returns></returns>
-        private async Task ProcessAnalyzeResult(AnalyzeResult result, string filename)
+        private async Task ProcessAnalyzeResult(AnalyzeResult result, string fileName)
         {
 
             // process the paragraphs and save to txt in the ProcessedTxtContainer
-            await ProcessAnalyzeResultParagraphsToTxtFiles(result.Paragraphs, filename);
+            await ProcessAnalyzeResultParagraphsToTxtFiles(result.Paragraphs, fileName);
 
             // process the pages and save to PDF in the ProcessedPdfContainer
-            await ProcessAnalyzeReultPagesToPdf(result.Pages, filename);
+            await ProcessAnalyzeReultPagesToPdf(result.Pages, fileName);
 
         }
 
-        private async Task ProcessAnalyzeResultParagraphsToTxtFiles(IReadOnlyList<DocumentParagraph> result, string filename)
+        private async Task ProcessAnalyzeResultParagraphsToTxtFiles(IReadOnlyList<DocumentParagraph> result, string fileName)
         {
             var containerName = Environment.GetEnvironmentVariable("ProcessedTxtContainer");
 
@@ -110,15 +111,23 @@ namespace ImageToPdf
                     ms.Position = 0;
 
                     // write the stringbuilder to a txt file
-                    await WriteAnalyzeResultToBlob(ms, containerName, $"{filename}-page-{i + 1}.txt");
+                    await WriteAnalyzeResultToBlob(ms, containerName, $"{fileName}-page-{i + 1}.txt");
                 }
             }
         }
 
-        private async Task ProcessAnalyzeReultPagesToPdf(IReadOnlyList<DocumentPage> result, string filename)
+        /// <summary>
+        /// Processes the analyzed result pages and converts them to a PDF document.
+        /// </summary>
+        /// <param name="result">The list of analyzed document pages.</param>
+        /// <param name="fileName">The name of the output PDF file.</param>
+        /// <returns>A task representing the asynchronous operation.</returns>
+        private async Task ProcessAnalyzeReultPagesToPdf(IReadOnlyList<DocumentPage> result, string fileName)
         {
-            // get the processed pdf container name from the environment variable
+            // Get the processed pdf container name from the environment variable
             var containerName = Environment.GetEnvironmentVariable("ProcessedPdfContainer");
+            // Get the AllowedVarianceOnSingleLineCalculation from the environment variable
+            var allowedVariance = double.Parse(Environment.GetEnvironmentVariable("AllowedVarianceOnSingleLineCalculation"));
 
             // Create a new PDF document:
             GcPdfDocument doc = new GcPdfDocument();
@@ -130,28 +139,58 @@ namespace ImageToPdf
             foreach (var page in result)
             {
                 // Create a new page in the PDF document
-                var pdfPage = doc.NewPage();
+                var pdfPage = doc.Pages.Add();
                 // Set page size bsed on the page size from the DocumentAnalysis result
                 pdfPage.Size = new SizeF((float)(page.Width * In), (float)(page.Height * In));
 
                 // Create a new graphics object to draw on the page
                 GcPdfGraphics g = pdfPage.Graphics;
 
-                // Loop through each word on the page
-                foreach (var word in page.Words)
+                for (int iCounter = 0; iCounter < page.Words.Count; iCounter++)
                 {
+                    var word = page.Words[iCounter];
+
                     // Calculate optimal font size based on the polygon
                     var desiredTextHeight = word.BoundingPolygon[3].Y - word.BoundingPolygon[0].Y;
+                    if (desiredTextHeight == 0)
+                    {
+                        desiredTextHeight = 0.1f;
+                    }
 
                     // Set Font and FontSize
                     var tf = new TextFormat() { Font = StandardFonts.Times, FontSize = In * (float)desiredTextHeight, FontSizeInGraphicUnits = true };
 
                     var tl = g.CreateTextLayout();
                     tl.Append(word.Content, tf);
+
+                    // Check if the next sequence of words are on the same line to keep them on the same line with proper spacing.
+                    for (int wordCounter = iCounter; wordCounter < page.Words.Count - 1; wordCounter++)
+                    {
+                        var nextWord = page.Words[wordCounter + 1];
+                        var nextWordY = nextWord.BoundingPolygon[0].Y;
+                        var currentWordY = page.Words[wordCounter].BoundingPolygon[0].Y;
+
+                        // use the allowedVariance to determine if the next word is on the same line based on word and word+1 Y coordinates
+                        if ( Math.Abs(nextWordY - currentWordY) < allowedVariance)
+                        {
+                            tl.Append(" ", tf);
+                            tl.Append(nextWord.Content, tf);
+                            iCounter++;
+                        }
+                        else
+                        {
+                            break;
+                        }
+                    }
+
                     tl.PerformLayout(true);
 
-                    PointF pt = new PointF(word.BoundingPolygon[0].ToVector2());
-                    g.DrawTextLayout(tl, pt);
+                    // Convert inches to points
+                    float xPoint = (float)(word.BoundingPolygon[0].X * In);
+                    float yPoint = (float)(word.BoundingPolygon[0].Y * In);
+
+                    // Draw the text layout on the page with starting point of upper left corner of the BoudingPolygon
+                    g.DrawTextLayout(tl, new PointF(xPoint, yPoint));
                 }
             }
 
@@ -162,16 +201,18 @@ namespace ImageToPdf
                 ms.Position = 0;
 
                 // write the PDF to a blob
-                await WriteAnalyzeResultToBlob(ms, containerName, $"{filename}.pdf");
+                await WriteAnalyzeResultToBlob(ms, containerName, $"{fileName}.pdf");
             }
-
         }
 
+
+
         /// <summary>
-        /// Write 
+        /// Write the plain text result to a blob storage container.
         /// </summary>
-        /// <param name="result">plain text to output</param>
-        /// <param name="filename">file name</param>
+        /// <param name="ms">MemoryStream containing content to output</param>
+        /// <param name="containerName">Name of the blob storage container</param>
+        /// <param name="fileName">Name of the file to be written</param>
         /// <returns></returns>
         private async Task WriteAnalyzeResultToBlob(MemoryStream ms, string? containerName, string fileName)
         {
