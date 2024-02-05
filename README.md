@@ -17,7 +17,8 @@ $appName = "docintellpoc"+$randomNum
 $location = "eastus"
 $resourceGroup = "rg-"+ $appName
 $scannedImageContainer = "scanned-images"
-$processedContainer = "parased-txt"
+$processedTxtContainer = "parased-txt"
+$processedPdfContainer = "parsed-pdf"
 
 # create resource group
 az group create --name $resourceGroup --location $location
@@ -29,9 +30,6 @@ az storage account create --name "sa$appName" --resource-group $resourceGroup --
 $storageConnstr=$(az storage account show-connection-string --name "sa$appName" --resource-group $resourceGroup --output tsv --query connectionString)
 
 az storage container create --name $scannedImageContainer --connection-string $storageConnstr
-
-# create scanned-images container in that storage account
-az storage container create --name $processedContainer --connection-string $storageConnstr
 
 # create Document Intelligence Service (Single-Service)
 az cognitiveservices account create --name "ai-di-$appName" --resource-group $resourceGroup --kind FormRecognizer --sku S0 --location $location --assign-identity --custom-domain "ai-di-$appName"  --yes
@@ -52,9 +50,14 @@ $imageSourceStorageConnectionString= $(az storage account show-connection-string
 
 az functionapp config appsettings set --name "${appName}func" --resource-group $resourceGroup --settings "ImageSourceStorage=$imageSourceStorageConnectionString"
 
-# set value for ProcessedContainer this is the container where the processed file is storaged as filename-{txt}-{pageNumber}.txt
+# set value for processedTxtContainer this is the container where the processed txt file is storaged as filename-{txt}-{pageNumber}.txt
+az functionapp config appsettings set --name "${appName}func" --resource-group $resourceGroup --settings "ProcessedTxtContainer=$processedTxtContainer"
 
-az functionapp config appsettings set --name "${appName}func" --resource-group $resourceGroup --settings "ProcessedContainer=$processedContainer"
+# set value for processedPdfContainer
+az functionapp config appsettings set --name "${appName}func" --resource-group $resourceGroup --settings "ProcessedPdfContainer=$processedPdfContainer"
+
+# set value for variance allowed for the parser to determine if word and word+1 is on the same line based on y position
+az functionapp config appsettings set --name "${appName}func" --resource-group $resourceGroup --settings "AllowedVarianceOnSingleLineCalculation=0.02"
 
 # set value for Azure Document Intelligence endpoint
 $docIntlEndpoint = $(az cognitiveservices account show --name "ai-di-$appName" --resource-group $resourceGroup --output tsv --query properties.endpoint)
@@ -138,3 +141,9 @@ The Azure Document Intelligence SDK is used to read the image. It uses the `preb
 ## Next steps
 
 You can customize the Azure Function and the use of the Azure Document Intelligence SDK to suit your needs. For example, you can choose a different model to read the image, or you can modify the function to perform additional tasks after reading the image.
+
+## Additional References
+https://techcommunity.microsoft.com/t5/ai-azure-ai-services-blog/generate-searchable-pdfs-with-azure-form-recognizer/ba-p/3652024
+
+https://learn.microsoft.com/en-us/azure/azure-functions/functions-event-grid-blob-trigger?tabs=isolated-process%2Cnodejs-v4&pivots=programming-language-csharp
+
