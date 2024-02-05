@@ -132,6 +132,10 @@ namespace ImageToPdf
             // By default, DsPdf uses 72dpi:
             const float In = 72;
 
+            //TODO: account for vertical text.
+            //TODO: account for rotated text.
+            //TODO: account for font family
+
             // Loop through each page
             foreach (var page in result)
             {
@@ -168,7 +172,7 @@ namespace ImageToPdf
                         var currentWordY = page.Words[wordCounter].BoundingPolygon[0].Y;
 
                         // use the allowedVariance to determine if the next word is on the same line based on word and word+1 Y coordinates
-                        if ( Math.Abs(nextWordY - currentWordY) < allowedVariance)
+                        if (Math.Abs(nextWordY - currentWordY) < allowedVariance)
                         {
                             tl.Append(" ", tf);
                             tl.Append(nextWord.Content, tf);
@@ -180,14 +184,24 @@ namespace ImageToPdf
                         }
                     }
 
-                    tl.PerformLayout(true);
+                    try     // Try to layout the text
+                    {
+                        tl.PerformLayout(true);
 
-                    // Convert inches to points
-                    float xPoint = (float)(word.BoundingPolygon[0].X * In);
-                    float yPoint = (float)(word.BoundingPolygon[0].Y * In);
+                        // Convert inches to points
+                        float xPoint = (float)(word.BoundingPolygon[0].X * In);
+                        float yPoint = (float)(word.BoundingPolygon[0].Y * In);
 
-                    // Draw the text layout on the page with starting point of upper left corner of the BoudingPolygon
-                    g.DrawTextLayout(tl, new PointF(xPoint, yPoint));
+                        // Draw the text layout on the page with starting point of upper left corner of the BoudingPolygon
+                        g.DrawTextLayout(tl, new PointF(xPoint, yPoint));
+                    }
+                    catch (Exception ex)   // If the layout fails, log the exception and continue
+                    {
+                        _logger.LogError($"Error laying out text on page: {page.PageNumber}.  Text: {word.Content}. ");
+                    }
+
+
+
                 }
             }
 
