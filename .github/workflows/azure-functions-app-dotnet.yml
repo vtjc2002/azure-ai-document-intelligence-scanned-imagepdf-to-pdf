@@ -34,7 +34,7 @@ jobs:
     environment: dev
     steps:
     - name: 'Echo variables'
-      run: echo ${{ env.AZURE_FUNCTIONAPP_NAME }} ${{ var.FUNCNAME }} ${{ env.FUNCNAME }}
+      run: echo ${{ env.AZURE_FUNCTIONAPP_NAME }} ${{ env.FUNCNAME }}
       
     - name: 'Checkout GitHub Action'
       uses: actions/checkout@v3
