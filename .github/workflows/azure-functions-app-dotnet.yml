@@ -33,9 +33,6 @@ jobs:
     runs-on: windows-latest # For Linux, use ubuntu-latest
     environment: dev
     steps:
-    - name: 'Echo variables'
-      run: echo ${{ env.AZURE_FUNCTIONAPP_NAME }} ${{ vars.FUNCNAME }}
-      
     - name: 'Checkout GitHub Action'
       uses: actions/checkout@v3
 
