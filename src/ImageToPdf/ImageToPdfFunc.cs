@@ -1,5 +1,4 @@
 using System.Drawing;
-using System.Threading.Tasks;
 
 using Azure;
 using Azure.AI.FormRecognizer.DocumentAnalysis;
@@ -10,8 +9,6 @@ using GrapeCity.Documents.Text;
 
 using Microsoft.Azure.Functions.Worker;
 using Microsoft.Extensions.Logging;
-
-
 
 namespace ImageToPdf
 {
