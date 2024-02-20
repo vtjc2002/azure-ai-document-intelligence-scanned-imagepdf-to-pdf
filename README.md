@@ -1,6 +1,6 @@
 # Azure Document Intelligence SDK with Blob Storage Event Trigger
 
-This project uses the Azure Document Intelligence SDK to read an image with the `prebuilt-document` model from a Blob Storage event trigger and write the results into {filename}-page-{x}.txt into the configured blob container.
+This project uses the Azure Document Intelligence SDK to read an image with the `prebuilt-read` model from a Blob Storage event trigger and write the results into {filename}-page-{x}.txt into the configured blob container.
 
 ## Infrastructure
 Follow the below steps to provision necessary Azure infrastructure for this code sample to work using az cli and powershell.
@@ -124,7 +124,7 @@ Now you are ready to go.
 
 1. Upload an image to your Blob Storage account scanned-images container. This will trigger the Azure Function.
 
-2. The Azure Function is set up to use the Azure Document Intelligence SDK to read the image with the `prebuilt-document` model.
+2. The Azure Function is set up to use the Azure Document Intelligence SDK to read the image with the `prebuilt-read` model.
 
 3. The result of the read operation will be stored in the parased-txt container of the same storage account where the image is uploaded.
 
@@ -132,11 +132,11 @@ Now you are ready to go.
 
 The Azure Function is triggered by a Blob Storage event. When a new image is uploaded to the Blob Storage, the function is triggered and the image is processed using the Azure Document Intelligence SDK.
 
-The function uses the `prebuilt-document` model to read the image. This model is designed to extract pages and paragraphs from documents.
+The function uses the `prebuilt-read` model to read the image. This model is designed to extract pages and paragraphs from documents.
 
 ## Azure Document Intelligence SDK
 
-The Azure Document Intelligence SDK is used to read the image. It uses the `prebuilt-document` model to extract pages and paragraphs from the image.
+The Azure Document Intelligence SDK is used to read the image. It uses the `prebuilt-read` model to extract pages and paragraphs from the image.
 
 ## Next steps
 

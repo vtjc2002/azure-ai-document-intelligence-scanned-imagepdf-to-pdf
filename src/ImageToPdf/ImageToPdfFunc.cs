@@ -45,8 +45,8 @@ namespace ImageToPdf
                 inputStream.CopyTo(ms);
                 ms.Position = 0;
 
-                // analyze the document with prebuilt-document model
-                AnalyzeDocumentOperation operation = await client.AnalyzeDocumentAsync(WaitUntil.Completed, modelId: "prebuilt-document", document: ms);
+                // analyze the document with prebuilt-read model
+                AnalyzeDocumentOperation operation = await client.AnalyzeDocumentAsync(WaitUntil.Completed, modelId: "prebuilt-read", document: ms);
                 AnalyzeResult result = operation.Value;
 
                 // process the AnalyzeResult
@@ -80,6 +80,12 @@ namespace ImageToPdf
 
         }
 
+        /// <summary>
+        /// Processes the analyzed result paragraphs and converts them to txt files.
+        /// </summary>
+        /// <param name="result"></param>
+        /// <param name="fileName"></param>
+        /// <returns></returns>
         private async Task ProcessAnalyzeResultParagraphsToTxtFiles(IReadOnlyList<DocumentParagraph> result, string fileName)
         {
             var containerName = Environment.GetEnvironmentVariable("ProcessedTxtContainer");
